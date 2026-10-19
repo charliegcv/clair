@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fa">
+  <meta name="description" content="Un aperçu simple de votre budget mensuel selon la règle 50/30/20.">
+  <title>Clair — Mon budget</title>
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css?v=5">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="js/app.js?v=5"></script>
+</head>
+<body>
+  <div id="setup-notice" class="setup-notice" hidden>
+    <div class="setup-notice__card">
+      <span class="brand-mark" aria-hidden="true">C</span>
+      <h1>Un dernier réglage</h1>
+      <p>Ajoute l’URL de ton projet Supabase et sa clé publique dans <code>js/app.js</code>, puis recharge cette page.</p>
+      <p class="muted">Utilise la clé publique <code>sb_publishable_…</code> ou <code>anon</code>. Ne mets jamais une clé secrète ici.</p>
+    </div>
+  </div>
+
+  <main id="auth-view" class="auth-view" hidden>
+    <section class="auth-card" aria-labelledby="auth-title">
+      <a class="brand" href="#" aria-label="Clair, accueil"><span class="brand-mark" aria-hidden="true">C</span><span>clair</span></a>
+      <p class="eyebrow">TON BUDGET, EN TOUTE SIMPLICITÉ</p>
+      <h1 id="auth-title">Ravi de te revoir</h1>
+      <p class="auth-intro">Connecte-toi pour retrouver ton budget du mois.</p>
+      <form id="auth-form" class="form-stack">
+        <label for="auth-email">Adresse e-mail</label>
+        <input id="auth-email" name="email" type="email" autocomplete="email" placeholder="toi@exemple.fr" required>
+        <label for="auth-password">Mot de passe</label>
+        <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="8" placeholder="8 caractères minimum" required>
+        <p id="auth-error" class="field-error" role="alert" hidden></p>
+        <button id="auth-submit" class="button button--primary button--full" type="submit">Se connecter</button>
+      </form>
+      <div class="auth-divider"><span>ou continuer avec</span></div>
+      <div class="social-auth">
+        <button id="google-auth-button" class="social-button" type="button"><span class="google-mark" aria-hidden="true">G</span><span class="social-label">Google</span></button>
+      </div>
+      <p id="social-auth-error" class="field-error" role="alert" hidden></p>
+      <p class="auth-switch"><span id="auth-switch-copy">Pas encore de compte ?</span> <button id="auth-switch" class="text-button" type="button">Créer un compte</button></p>
+      <p class="auth-footnote">Tes identifiants et tes données sont gérés par Supabase.</p>
+    </section>
+    <aside class="auth-aside" aria-label="La règle 50/30/20">
+      <div class="aside-orbit aside-orbit--one"></div><div class="aside-orbit aside-orbit--two"></div>
+      <div class="aside-copy">
+        <span class="eyebrow eyebrow--light">UNE RÈGLE, TROIS REPÈRES</span>
+        <h2>Chaque euro<br>trouve sa place.</h2>
+        <div class="aside-rules">
+          <div><span class="rule-dot rule-dot--blue"></span><b>50%</b><span>besoins</span></div>
+          <div><span class="rule-dot rule-dot--red"></span><b>30%</b><span>envies</span></div>
+          <div><span class="rule-dot rule-dot--green"></span><b>20%</b><span>épargne</span></div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div id="app-view" class="app-shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard" aria-label="Clair, tableau de bord"><span class="brand-mark" aria-hidden="true">C</span><span>clair</span></a>
+      <p class="nav-caption">MENU</p>
+      <nav class="side-nav" aria-label="Navigation principale">
+        <button class="nav-item is-active" type="button" data-view="dashboard"><span class="nav-icon" aria-hidden="true">◫</span>Vue d’ensemble</button>
+        <button class="nav-item" type="button" data-view="transactions"><span class="nav-icon" aria-hidden="true">↕</span>Opérations</button>
+        <button class="nav-item" type="button" data-view="settings"><span class="nav-icon" aria-hidden="true">⚙</span>Réglages</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="privacy-note"><span class="privacy-icon" aria-hidden="true">✦</span><p>Ton espace est privé.<br><span>Toi seul·e vois tes données.</span></p></div>
+        <button id="signout-button" class="nav-item nav-item--quiet" type="button"><span class="nav-icon" aria-hidden="true">↪</span>Déconnexion</button>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark" aria-hidden="true">C</span><span>clair</span></div>
+        <div class="topbar-spacer"></div>
+        <div class="user-pill"><span id="user-avatar" class="avatar">C<img id="user-avatar-image" alt="" hidden></span><span id="user-email" class="user-email">Mon compte</span></div>
+      </header>
+
+      <section id="dashboard-view" class="page-view page-content">
+        <div class="page-heading">
+          <div><p class="eyebrow">TON ESPACE PERSONNEL</p><h1>Vue d’ensemble</h1><p class="page-subtitle">Un regard clair sur ton argent, sans prise de tête.</p></div>
+          <label class="month-picker"><span class="sr-only">Mois à afficher</span><span aria-hidden="true">▦</span><select id="month-select" aria-label="Mois à afficher"></select></label>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel overview-panel" aria-labelledby="budget-title">
+            <div class="panel-heading"><div><p class="eyebrow">RÉPARTITION MENSUELLE</p><h2 id="budget-title">Ton budget</h2></div><span id="budget-month-label" class="month-label"></span></div>
+            <div class="budget-visual">
+              <div id="budget-donut" class="donut" role="img" aria-label="Répartition des dépenses, de l’épargne et du budget restant">
+                <div class="donut-hole"><span>Revenu net</span><strong id="donut-income">—</strong><small>ce mois-ci</small></div>
+              </div>
+              <div id="budget-legend" class="budget-legend" aria-label="Détail du budget">
+                <div class="legend-row"><span class="legend-swatch swatch--blue"></span><span class="legend-name">Besoins</span><strong id="legend-needs">0 €</strong></div>
+                <div class="legend-row"><span class="legend-swatch swatch--red"></span><span class="legend-name">Envies</span><strong id="legend-wants">0 €</strong></div>
+                <div class="legend-row"><span class="legend-swatch swatch--green"></span><span class="legend-name">Épargne</span><strong id="legend-savings">0 €</strong></div>
+                <div class="legend-row legend-row--muted"><span class="legend-swatch swatch--gray"></span><span class="legend-name">Disponible</span><strong id="legend-available">0 €</strong></div>
+              </div>
+            </div>
+            <p class="chart-caption">Le cercle évolue avec tes dépenses et ton épargne enregistrées.</p>
+          </section>
+
+          <section class="panel income-panel" aria-labelledby="income-title">
+            <div class="income-icon" aria-hidden="true">↗</div>
+            <p class="eyebrow">REVENU MENSUEL NET</p>
+            <h2 id="income-title"><span id="income-amount">0 €</span></h2>
+            <p id="income-caption" class="muted">Tes repères sont calculés à partir de ce montant.</p>
+            <div class="income-actions"><button id="add-income-button" class="button button--primary" type="button"><span class="plus" aria-hidden="true">+</span> Ajouter de l’argent</button><button id="edit-income-button" class="button button--soft" type="button">Modifier le revenu de base</button></div>
+          </section>
+        </div>
+
+        <div class="section-heading"><div><p class="eyebrow">TES REPÈRES 50 / 30 / 20</p><h2>Les enveloppes du mois</h2></div><button id="add-operation-button" class="button button--primary" type="button"><span class="plus" aria-hidden="true">+</span> Ajouter une opération</button></div>
+        <section class="envelope-grid" aria-label="Progression des enveloppes">
+          <article class="envelope-card envelope-card--needs">
+            <div class="envelope-top"><span class="envelope-icon" aria-hidden="true">⌂</span><span class="target-chip">50% du revenu</span></div>
+            <h3>Besoins primaires</h3><p class="envelope-description">Logement, courses, factures, transport essentiel…</p>
+            <div class="amount-line"><strong id="needs-spent">0 €</strong><span>sur <span id="needs-target">0 €</span></span></div>
+            <div class="progress-track"><div id="needs-progress" class="progress-fill"></div></div>
+            <div class="envelope-foot"><span id="needs-status">0% utilisé</span><span><b id="needs-left">0 €</b> restant</span></div>
+          </article>
+          <article class="envelope-card envelope-card--wants">
+            <div class="envelope-top"><span class="envelope-icon" aria-hidden="true">♡</span><span class="target-chip">30% du revenu</span></div>
+            <h3>Envies &amp; loisirs</h3><p class="envelope-description">Sorties, vêtements, activités, petits plaisirs…</p>
+            <div class="amount-line"><strong id="wants-spent">0 €</strong><span>sur <span id="wants-target">0 €</span></span></div>
+            <div class="progress-track"><div id="wants-progress" class="progress-fill"></div></div>
+            <div class="envelope-foot"><span id="wants-status">0% utilisé</span><span><b id="wants-left">0 €</b> restant</span></div>
+          </article>
+          <article class="envelope-card envelope-card--savings">
+            <div class="envelope-top"><span class="envelope-icon" aria-hidden="true">⌁</span><span class="target-chip">20% du revenu</span></div>
+            <h3>Épargne réservée</h3><p class="envelope-description">La part que tu mets de côté pour tes projets.</p>
+            <div class="amount-line"><strong id="savings-saved">0 €</strong><span>objectif <span id="savings-target">0 €</span></span></div>
+            <div class="progress-track"><div id="savings-progress" class="progress-fill"></div></div>
+            <div class="envelope-foot"><span id="savings-status">0% mis de côté</span><span><b id="savings-left">0 €</b> à épargner</span></div>
+          </article>
+        </section>
+        <div id="budget-adjustment" class="budget-adjustment" role="status" hidden><span class="budget-adjustment__icon" aria-hidden="true">!</span><p id="budget-adjustment-text"></p></div>
+
+        <section class="panel recent-panel" aria-labelledby="recent-title">
+          <div class="panel-heading"><div><p class="eyebrow">CE QUI S’EST PASSÉ</p><h2 id="recent-title">Dernières opérations</h2></div><button id="see-all-button" class="text-button" type="button">Tout voir <span aria-hidden="true">→</span></button></div>
+          <div id="recent-list" class="operation-list"></div>
+          <div id="recent-empty" class="empty-state" hidden><span class="empty-icon" aria-hidden="true">◎</span><p>Aucune opération pour ce mois.</p><span>Ajoute ta première dépense ou ton épargne.</span></div>
+        </section>
+      </section>
+
+      <section id="transactions-view" class="page-view page-content" hidden>
+        <div class="page-heading"><div><p class="eyebrow">TON HISTORIQUE</p><h1>Opérations</h1><p class="page-subtitle">Retrouve et ajuste les mouvements de ton mois.</p></div><button class="button button--primary add-operation-trigger" type="button"><span class="plus" aria-hidden="true">+</span> Ajouter une opération</button></div>
+        <section class="panel transactions-panel">
+          <div class="panel-heading"><div><p class="eyebrow">HISTORIQUE</p><h2 id="transaction-month-heading">Ce mois-ci</h2></div><span id="transaction-count" class="count-chip">0 opération</span></div>
+          <div id="all-transactions" class="operation-list"></div>
+          <div id="transactions-empty" class="empty-state" hidden><span class="empty-icon" aria-hidden="true">◎</span><p>Pas encore d’opération ici.</p><span>Tout ce que tu ajoutes apparaîtra dans cette liste.</span></div>
+        </section>
+      </section>
+
+      <section id="settings-view" class="page-view page-content" hidden>
+        <div class="page-heading"><div><p class="eyebrow">À TON RYTHME</p><h1>Réglages</h1><p class="page-subtitle">Mets à jour les informations de ton budget.</p></div></div>
+        <section class="panel settings-panel"><div><p class="eyebrow">TON BUDGET</p><h2>Revenu mensuel</h2><p class="muted">Ce montant sert à calculer tes enveloppes 50/30/20.</p></div>
+          <form id="income-form" class="income-form"><label for="income-input">Revenu net par mois</label><div class="input-with-suffix"><input id="income-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" required><span>€</span></div><button class="button button--primary" type="submit">Enregistrer</button></form>
+        </section>
+        <section class="panel profile-settings-panel">
+          <div><p class="eyebrow">TON PROFIL</p><h2>Nom et photo</h2><p class="muted">Personnalise ton espace Clair.</p></div>
+          <form id="profile-form" class="profile-form">
+            <div class="profile-photo-control"><img id="settings-avatar-preview" class="avatar-preview avatar-preview--large" alt="Photo de profil" hidden><span id="settings-avatar-fallback" class="avatar avatar--large">C</span><label class="button button--outline file-label" for="settings-avatar-input">Choisir une photo</label><input id="settings-avatar-input" class="file-input" type="file" accept="image/png,image/jpeg,image/webp"></div>
+            <label for="settings-name">Nom affiché</label><input id="settings-name" type="text" maxlength="60" autocomplete="name" required>
+            <button class="button button--primary" type="submit">Enregistrer le profil</button>
+          </form>
+        </section>
+        <section class="panel account-panel"><div><p class="eyebrow">TON COMPTE</p><h2>Identifiant de connexion</h2><p id="settings-email" class="muted">—</p></div><button id="settings-signout-button" class="button button--outline" type="button">Se déconnecter</button></section>
+        <section class="support-panel" aria-labelledby="support-heading">
+          <div class="support-copy"><p class="eyebrow">UN PETIT COUP DE POUCE</p><h2 id="support-heading">Clair est entièrement gratuit</h2><p>Mais si l’application t’aide, tu peux m’aider à payer mon café ☕ Choisis librement le montant sur Ko-fi.</p></div>
+          <a class="button support-button" href="https://ko-fi.com/charliegcv" target="_blank" rel="noopener noreferrer">Soutenir Clair <span aria-hidden="true">↗</span></a>
+        </section>
+        <p class="privacy-footnote">Tes opérations sont enregistrées dans ton espace Supabase et protégées par compte.</p>
+      </section>
+      <footer class="app-footer">Clair · Un outil simple pour garder le cap sur ton budget.</footer>
+    </div>
+  </div>
+
+  <dialog id="operation-dialog" class="dialog">
+    <form id="operation-form" class="dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">UNE OPÉRATION À LA FOIS</p><h2 id="dialog-title">Ajouter une opération</h2></div><button id="close-dialog" class="icon-button" type="button" aria-label="Fermer">×</button></div>
+      <input id="operation-id" type="hidden">
+      <label for="operation-label">Libellé</label><input id="operation-label" type="text" maxlength="80" placeholder="Ex. Courses du marché" required>
+      <div class="form-row"><div><label for="operation-amount">Montant</label><div class="input-with-suffix"><input id="operation-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" required><span>€</span></div></div><div><label for="operation-date">Date</label><input id="operation-date" type="date" required></div></div>
+      <label for="operation-category">Catégorie</label><select id="operation-category" required><option value="alimentation">Alimentation</option><option value="logement">Logement</option><option value="factures">Factures</option><option value="transport">Transport</option><option value="sante">Santé</option><option value="vetements">Vêtements</option><option value="sorties">Sorties</option><option value="loisirs">Loisirs</option><option value="achats-divers">Achats divers</option><option value="epargne">Épargne</option></select>
+      <label for="operation-envelope">Enveloppe</label><select id="operation-envelope" required><option value="needs">Besoins primaires · 50%</option><option value="wants">Envies &amp; loisirs · 30%</option><option value="savings">Épargne · 20%</option></select>
+      <p id="operation-error" class="field-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button id="cancel-dialog" class="button button--outline" type="button">Annuler</button><button id="save-operation" class="button button--primary" type="submit">Enregistrer</button></div>
+    </form>
+  </dialog>
+  <main id="profile-setup-view" class="profile-setup-view" hidden>
+    <section class="profile-setup-card" aria-labelledby="profile-setup-title">
+      <a class="brand profile-setup-brand" href="#" aria-label="Clair"><span class="brand-mark" aria-hidden="true">C</span><span>clair</span></a>
+      <p class="eyebrow">BIENVENUE CHEZ CLAIR</p>
+      <h1 id="profile-setup-title">Ton espace, à ton image.</h1>
+      <p class="muted profile-setup-copy">Choisis un nom et une photo pour terminer la création de ton compte.</p>
+      <form id="profile-setup-form" class="profile-setup-form">
+        <label for="setup-name">Nom affiché</label>
+        <input id="setup-name" type="text" maxlength="60" autocomplete="name" placeholder="Ex. Camille Martin" required>
+        <label for="setup-avatar-input">Photo de profil</label>
+        <div class="profile-setup-photo">
+          <img id="setup-avatar-preview" class="avatar-preview avatar-preview--setup" alt="Aperçu de la photo de profil" hidden>
+          <span id="setup-avatar-fallback" class="avatar avatar--setup">C</span>
+          <label class="button button--outline file-label" for="setup-avatar-input">Choisir une photo</label>
+          <input id="setup-avatar-input" class="file-input visually-hidden" type="file" accept="image/png,image/jpeg,image/webp">
+        </div>
+        <p class="muted profile-setup-hint">JPG, PNG ou WebP · 2 Mo maximum</p>
+        <p id="profile-setup-error" class="field-error" role="alert" hidden></p>
+        <button id="save-profile-setup" class="button button--primary button--full" type="submit">Terminer la création</button>
+      </form>
+    </section>
+  </main>
+  <dialog id="income-dialog" class="dialog">
+    <form id="income-entry-form" class="dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">UN VIREMENT OU UN EXTRA</p><h2 id="income-dialog-title">Ajouter de l’argent</h2></div><button id="close-income-dialog" class="icon-button" type="button" aria-label="Fermer">×</button></div>
+      <input id="income-entry-id" type="hidden">
+      <label for="income-entry-label">D’où vient cet argent ?</label><input id="income-entry-label" type="text" maxlength="80" placeholder="Ex. Virement reçu" required>
+      <div class="form-row"><div><label for="income-entry-amount">Montant</label><div class="input-with-suffix"><input id="income-entry-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" required><span>€</span></div></div><div><label for="income-entry-date">Date</label><input id="income-entry-date" type="date" required></div></div>
+      <p class="income-dialog-note">Cette somme s’ajoute au budget du mois indiqué sans modifier ton revenu de base.</p>
+      <p id="income-entry-error" class="field-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button id="cancel-income-dialog" class="button button--outline" type="button">Annuler</button><button id="save-income-entry" class="button button--primary" type="submit">Ajouter au budget</button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
